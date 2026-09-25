@@ -53,43 +53,48 @@ class ObjectDetector:
                         (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             return annotated_frame, detections
 
-        # --- REAL YOLO INFERENCE ---
-        # Run inference (verbose=False to avoid spamming the console)
-        results = self.model(frame, conf=self.confidence_threshold, verbose=False)[0]
+        # --- REAL YOLO INFERENCE WITH TRACKING ---
+        # Run inference using the built-in tracker (ByteTrack by default)
+        results = self.model.track(frame, conf=self.confidence_threshold, persist=True, verbose=False)[0]
         
         # Loop through detected boxes
-        for i, box in enumerate(results.boxes):
-            # Extract coordinates and class info
-            xyxy = box.xyxy[0].cpu().numpy().astype(int)
-            conf = float(box.conf[0].cpu().numpy())
-            cls_id = int(box.cls[0].cpu().numpy())
+        if results.boxes.id is not None:
+            # We have tracking IDs
+            track_ids = results.boxes.id.int().cpu().tolist()
+            boxes = results.boxes.xyxy.cpu().numpy().astype(int)
+            confs = results.boxes.conf.cpu().numpy()
+            clss = results.boxes.cls.cpu().numpy().astype(int)
             
-            # Get class name mapping (e.g., 0 -> 'person', 16 -> 'dog')
-            label = self.model.names[cls_id]
-            
-            # We are mostly interested in people and pets for Tower
-            if label not in ['person', 'dog', 'cat', 'bird']:
-                continue
+            for i in range(len(boxes)):
+                track_id = track_ids[i]
+                x1, y1, x2, y2 = boxes[i]
+                conf = float(confs[i])
+                cls_id = clss[i]
                 
-            x1, y1, x2, y2 = xyxy
-            centroid = (int((x1 + x2) / 2), int((y1 + y2) / 2))
-            
-            # Assign a naive ID based on class and index for now 
-            # (A real multi-object tracker like DeepSORT would manage these IDs across frames)
-            obj_id = f"{label}_{i}"
-            
-            detection = {
-                "id": obj_id,
-                "label": label,
-                "centroid": centroid,
-                "bbox": (x1, y1, x2, y2),
-                "confidence": conf
-            }
-            detections.append(detection)
-            
-            # Draw bounding box and label
-            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-            cv2.putText(annotated_frame, f"{label} {conf:.2f}", 
-                        (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+                # Get class name mapping (e.g., 0 -> 'person', 16 -> 'dog')
+                label = self.model.names[cls_id]
+                
+                # We are mostly interested in people and pets for Tower
+                if label not in ['person', 'dog', 'cat', 'bird']:
+                    continue
+                    
+                centroid = (int((x1 + x2) / 2), int((y1 + y2) / 2))
+                
+                # Use the tracking ID assigned by YOLO's tracker
+                obj_id = f"{label}_{track_id}"
+                
+                detection = {
+                    "id": obj_id,
+                    "label": label,
+                    "centroid": centroid,
+                    "bbox": (x1, y1, x2, y2),
+                    "confidence": conf
+                }
+                detections.append(detection)
+                
+                # Draw bounding box, label, and tracking ID
+                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                cv2.putText(annotated_frame, f"{obj_id} {conf:.2f}", 
+                            (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
                         
         return annotated_frame, detections
