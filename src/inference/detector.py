@@ -90,6 +90,19 @@ class ObjectDetector:
                     "bbox": (x1, y1, x2, y2),
                     "confidence": conf
                 }
+                
+                # Extract keypoints if this is a pose model
+                if results.keypoints is not None and len(results.keypoints.data) > i:
+                    # Keypoints are [N, 17, 3] for human pose (x, y, conf)
+                    kp = results.keypoints.data[i].cpu().numpy()
+                    detection["keypoints"] = kp.tolist()
+                    
+                    # Optionally draw keypoints
+                    for k in kp:
+                        kx, ky, kconf = k
+                        if kconf > 0.5:
+                            cv2.circle(annotated_frame, (int(kx), int(ky)), 3, (0, 0, 255), -1)
+
                 detections.append(detection)
                 
                 # Draw bounding box, label, and tracking ID

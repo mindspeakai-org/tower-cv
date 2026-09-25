@@ -8,7 +8,7 @@ from src.pipeline.tracker import ContextualTracker
 def main(source, show_video=True):
     # Initialize components
     streamer = FrameStreamer(source=source, fps=30)
-    detector = ObjectDetector(model_path="yolov8n.pt")
+    detector = ObjectDetector(model_path="yolov8n-pose.pt")
     
     # We set time_threshold_sec low (e.g. 3 seconds) for quick testing of "stationary" events
     tracker = ContextualTracker(movement_threshold=20.0, time_threshold_sec=3.0)

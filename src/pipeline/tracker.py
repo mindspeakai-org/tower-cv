@@ -22,6 +22,30 @@ class ContextualTracker:
     def _calculate_distance(self, pos1: tuple[float, float], pos2: tuple[float, float]) -> float:
         return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
+    def _estimate_pose(self, det: Dict[str, Any]) -> str:
+        """
+        Estimates the pose of a person based on bounding box proportions.
+        If the width is significantly larger than the height, they might be lying down.
+        """
+        if det.get("label") != "person":
+            return "unknown"
+            
+        bbox = det.get("bbox")
+        if not bbox:
+            return "unknown"
+            
+        x1, y1, x2, y2 = bbox
+        width = x2 - x1
+        height = y2 - y1
+        
+        # Very simple heuristic
+        if width > height * 1.2:
+            return "lying_down"
+        elif height > width * 2:
+            return "standing"
+        else:
+            return "sitting_or_bending"
+
     def update(self, detections: List[Dict[str, Any]], current_time: Optional[float] = None) -> List[Dict[str, Any]]:
         """
         Takes in a list of raw detections for the current frame and updates internal state.
@@ -50,17 +74,19 @@ class ContextualTracker:
                 
             if obj_id not in self.objects:
                 # New object detected
+                pose_state = self._estimate_pose(det)
                 self.objects[obj_id] = {
                     "last_pos": centroid,
                     "last_moved_time": current_time,
                     "first_seen_time": current_time,
                     "last_seen_time": current_time,
                     "state": "active",
+                    "pose": pose_state,
                     "label": label
                 }
                 events.append({
                     "type": "object_entered",
-                    "description": f"A {label} ({obj_id}) has entered the view.",
+                    "description": f"A {label} ({obj_id}) has entered the view in a {pose_state} pose.",
                     "object_id": obj_id,
                     "timestamp": current_time
                 })
@@ -68,6 +94,18 @@ class ContextualTracker:
                 # Existing object, calculate movement
                 obj = self.objects[obj_id]
                 dist = self._calculate_distance(obj["last_pos"], centroid)
+                
+                # Check for pose changes
+                current_pose = self._estimate_pose(det)
+                if current_pose != "unknown" and current_pose != obj["pose"]:
+                    events.append({
+                        "type": "pose_changed",
+                        "description": f"The {label} ({obj_id}) changed pose from {obj['pose']} to {current_pose}.",
+                        "object_id": obj_id,
+                        "timestamp": current_time,
+                        "pose": current_pose
+                    })
+                    obj["pose"] = current_pose
                 
                 # Update last seen
                 obj["last_seen_time"] = current_time
