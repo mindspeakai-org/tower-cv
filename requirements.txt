@@ -6,3 +6,4 @@ tqdm
 ultralytics
 fastapi
 uvicorn
+yt-dlp
