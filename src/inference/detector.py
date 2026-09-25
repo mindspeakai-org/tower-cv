@@ -2,21 +2,27 @@ from typing import List, Dict, Any, Tuple
 import cv2
 import numpy as np
 
+try:
+    from ultralytics import YOLO
+    ULTRALYTICS_AVAILABLE = True
+except ImportError:
+    ULTRALYTICS_AVAILABLE = False
+
 class ObjectDetector:
     """
-    A generic wrapper for edge-friendly object detection models (e.g., YOLOv8, MediaPipe).
-    Currently implemented using a placeholder/mock structure, ready to be swapped with a real model.
+    A generic wrapper for edge-friendly object detection models using YOLOv8.
     """
     def __init__(self, model_path: str = "yolov8n.pt", confidence_threshold: float = 0.5):
         self.model_path = model_path
         self.confidence_threshold = confidence_threshold
         
-        # TODO: Initialize real model here. 
-        # Example for YOLOv8:
-        # from ultralytics import YOLO
-        # self.model = YOLO(self.model_path)
-        
-        print(f"Initialized ObjectDetector (Mock) targeting model: {model_path}")
+        if ULTRALYTICS_AVAILABLE:
+            print(f"Loading YOLO model from: {self.model_path}...")
+            # Load the model (will download yolov8n.pt if not exists locally)
+            self.model = YOLO(self.model_path)
+        else:
+            self.model = None
+            print("WARNING: ultralytics package not found. Running in MOCK mode.")
 
     def predict(self, frame: np.ndarray) -> Tuple[np.ndarray, List[Dict[str, Any]]]:
         """
@@ -29,32 +35,61 @@ class ObjectDetector:
         annotated_frame = frame.copy()
         detections = []
         
-        # --- MOCK DETECTION LOGIC ---
-        # In a real implementation, this would be:
-        # results = self.model(frame, conf=self.confidence_threshold)[0]
-        # for box in results.boxes:
-        #     xyxy = box.xyxy[0].cpu().numpy()
-        #     centroid = ((xyxy[0] + xyxy[2]) / 2, (xyxy[1] + xyxy[3]) / 2)
-        #     detections.append({"id": "...", "centroid": centroid, ...})
+        if self.model is None:
+            # --- MOCK DETECTION LOGIC FALLBACK ---
+            height, width = frame.shape[:2]
+            center_x, center_y = int(width / 2), int(height / 2)
+            mock_detection = {
+                "id": "person_0",
+                "label": "person",
+                "centroid": (center_x, center_y),
+                "bbox": (center_x - 50, center_y - 100, center_x + 50, center_y + 100),
+                "confidence": 0.95
+            }
+            detections.append(mock_detection)
+            x1, y1, x2, y2 = mock_detection["bbox"]
+            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(annotated_frame, f"person {mock_detection['confidence']:.2f}", 
+                        (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            return annotated_frame, detections
+
+        # --- REAL YOLO INFERENCE ---
+        # Run inference (verbose=False to avoid spamming the console)
+        results = self.model(frame, conf=self.confidence_threshold, verbose=False)[0]
         
-        # For testing the tracker, let's inject a fake stationary person in the middle of the screen
-        height, width = frame.shape[:2]
-        center_x, center_y = int(width / 2), int(height / 2)
-        
-        # Mock detection payload
-        mock_detection = {
-            "id": "person_0",
-            "label": "person",
-            "centroid": (center_x, center_y),
-            "bbox": (center_x - 50, center_y - 100, center_x + 50, center_y + 100),
-            "confidence": 0.95
-        }
-        detections.append(mock_detection)
-        
-        # Draw mock bounding box
-        x1, y1, x2, y2 = mock_detection["bbox"]
-        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(annotated_frame, f"person {mock_detection['confidence']:.2f}", 
-                    (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                    
+        # Loop through detected boxes
+        for i, box in enumerate(results.boxes):
+            # Extract coordinates and class info
+            xyxy = box.xyxy[0].cpu().numpy().astype(int)
+            conf = float(box.conf[0].cpu().numpy())
+            cls_id = int(box.cls[0].cpu().numpy())
+            
+            # Get class name mapping (e.g., 0 -> 'person', 16 -> 'dog')
+            label = self.model.names[cls_id]
+            
+            # We are mostly interested in people and pets for Tower
+            if label not in ['person', 'dog', 'cat', 'bird']:
+                continue
+                
+            x1, y1, x2, y2 = xyxy
+            centroid = (int((x1 + x2) / 2), int((y1 + y2) / 2))
+            
+            # Assign a naive ID based on class and index for now 
+            # (A real multi-object tracker like DeepSORT would manage these IDs across frames)
+            obj_id = f"{label}_{i}"
+            
+            detection = {
+                "id": obj_id,
+                "label": label,
+                "centroid": centroid,
+                "bbox": (x1, y1, x2, y2),
+                "confidence": conf
+            }
+            detections.append(detection)
+            
+            # Draw bounding box and label
+            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            cv2.putText(annotated_frame, f"{label} {conf:.2f}", 
+                        (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+                        
         return annotated_frame, detections
