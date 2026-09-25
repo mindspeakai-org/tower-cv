@@ -72,7 +72,19 @@ python -m src.api.server
 ```
 You can view the interactive API documentation at: `http://localhost:8000/docs`
 
-### 3. Run the Fall Detection Test
+### 3. Test with a YouTube Video
+Want to test Tower on a specific scenario (e.g., a baby in a crib, or a dog waiting by a door)? You can easily download any YouTube video to test against.
+
+First, ensure you have the dependencies installed, then run the downloader script:
+```bash
+python scripts/download_youtube.py "https://www.youtube.com/watch?v=YOUR_VIDEO_ID"
+```
+This will download the video to `data/youtube_test.mp4`. You can then run the pipeline on it:
+```bash
+python -m src.pipeline.main --source data/youtube_test.mp4
+```
+
+### 4. Run the Synthetic Fall Detection Test
 We included a script that uses a sample image from the YouHome dataset to generate a 60-frame synthetic sequence of a person standing, and then suddenly "falling" (rotating 90 degrees). 
 
 Generate the sequence:
