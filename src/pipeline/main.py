@@ -10,8 +10,15 @@ def main(source, show_video=True):
     streamer = FrameStreamer(source=source, fps=30)
     detector = ObjectDetector(model_path="yolov8n-pose.pt")
     
+    # Define some sample zones for contextual tracking
+    # Format: "zone_name": (x1, y1, x2, y2)
+    sample_zones = {
+        "living_room_couch": (100, 100, 500, 400),
+        "front_door": (0, 0, 150, 600)
+    }
+    
     # We set time_threshold_sec low (e.g. 3 seconds) for quick testing of "stationary" events
-    tracker = ContextualTracker(movement_threshold=20.0, time_threshold_sec=3.0)
+    tracker = ContextualTracker(movement_threshold=20.0, time_threshold_sec=3.0, zones=sample_zones)
     
     print("--- Tower CV Pipeline Started ---")
     print("Waiting for contextual events...\n")
