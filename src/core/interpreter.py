@@ -47,6 +47,14 @@ class EventInterpreter:
         elif event_type == "audio_detected":
             sound = event.get("sound_class", "a sound").replace("_", " ")
             return f"Tower heard {sound}."
+            
+        elif event_type == "door_sensor":
+            return f"The {event.get('sensor_id', 'door').replace('_', ' ')} was just {event.get('state')}."
+            
+        elif event_type == "temperature_alert":
+            return f"Alert: The temperature is unusually high ({event.get('value', 0):.1f}°C)."
+            
+        return desc
 
     def translate(self, event: Dict[str, Any]) -> str:
         """

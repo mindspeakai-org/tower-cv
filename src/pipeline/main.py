@@ -4,6 +4,7 @@ import argparse
 from src.pipeline.capture import FrameStreamer
 from src.inference.detector import ObjectDetector
 from src.inference.audio import AudioDetector
+from src.pipeline.sensors import SensorHub
 from src.pipeline.tracker import ContextualTracker
 from src.core.logger import EventLogger
 from src.core.interpreter import EventInterpreter
@@ -13,6 +14,7 @@ def main(source, show_video=True):
     streamer = FrameStreamer(source=source, fps=30)
     detector = ObjectDetector(model_path="yolov8n-pose.pt")
     audio_detector = AudioDetector()
+    sensor_hub = SensorHub()
     logger = EventLogger(db_path="data/tower_events.db")
     interpreter = EventInterpreter(use_llm=False)  # Set to True if Ollama is running locally
     
@@ -40,6 +42,10 @@ def main(source, show_video=True):
             # 2.5 Listen for audio events (mock buffer for now)
             audio_events = audio_detector.listen(audio_buffer=None)
             events.extend(audio_events)
+            
+            # 2.6 Poll physical sensors (door contacts, temp)
+            sensor_events = sensor_hub.poll()
+            events.extend(sensor_events)
             
             # 3. Output events (The Contextual API)
             for event in events:
