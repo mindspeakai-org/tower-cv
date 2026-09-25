@@ -5,12 +5,14 @@ from src.pipeline.capture import FrameStreamer
 from src.inference.detector import ObjectDetector
 from src.pipeline.tracker import ContextualTracker
 from src.core.logger import EventLogger
+from src.core.interpreter import EventInterpreter
 
 def main(source, show_video=True):
     # Initialize components
     streamer = FrameStreamer(source=source, fps=30)
     detector = ObjectDetector(model_path="yolov8n-pose.pt")
     logger = EventLogger(db_path="data/tower_events.db")
+    interpreter = EventInterpreter(use_llm=False)  # Set to True if Ollama is running locally
     
     # Define some sample zones for contextual tracking
     # Format: "zone_name": (x1, y1, x2, y2)
@@ -35,10 +37,14 @@ def main(source, show_video=True):
             
             # 3. Output events (The Contextual API)
             for event in events:
-                # In a real system, this JSON would be sent to an MQTT broker, WebSocket, or local DB
-                print(json.dumps(event, indent=2))
                 # Log to local DB
                 logger.log_event(event)
+                
+                # Interpret into natural language
+                human_msg = interpreter.translate(event)
+                print(f"[TOWER ALERT] {human_msg}")
+                # You can still see the raw JSON if you need to debug
+                # print(json.dumps(event, indent=2))
                 
             # 4. Display the video feed (optional)
             if show_video:
