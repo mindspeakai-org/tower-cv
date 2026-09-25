@@ -6,6 +6,7 @@ from src.inference.detector import ObjectDetector
 from src.inference.audio import AudioDetector
 from src.pipeline.sensors import SensorHub
 from src.pipeline.tracker import ContextualTracker
+from src.pipeline.behavior import BehaviorEngine
 from src.core.logger import EventLogger
 from src.core.interpreter import EventInterpreter
 
@@ -17,6 +18,9 @@ def main(source, show_video=True):
     sensor_hub = SensorHub()
     logger = EventLogger(db_path="data/tower_events.db")
     interpreter = EventInterpreter(use_llm=False)  # Set to True if Ollama is running locally
+    
+    # You can switch this to 'elder_care', 'baby_monitoring', or 'pet_monitoring'
+    behavior_engine = BehaviorEngine(mode="pet_monitoring")
     
     # Define some sample zones for contextual tracking
     # Format: "zone_name": (x1, y1, x2, y2)
@@ -54,9 +58,12 @@ def main(source, show_video=True):
                 
                 # Interpret into natural language
                 human_msg = interpreter.translate(event)
-                print(f"[TOWER ALERT] {human_msg}")
-                # You can still see the raw JSON if you need to debug
-                # print(json.dumps(event, indent=2))
+                print(f"[EVENT] {human_msg}")
+                
+                # Evaluate for use-case specific insights
+                insights = behavior_engine.evaluate(event)
+                for insight in insights:
+                    print(f"[{insight['priority']}] {insight['insight']}")
                 
             # 4. Display the video feed (optional)
             if show_video:
