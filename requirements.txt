@@ -4,3 +4,5 @@ pillow
 pyyaml
 tqdm
 ultralytics
+fastapi
+uvicorn
