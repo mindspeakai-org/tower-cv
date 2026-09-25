@@ -31,6 +31,18 @@ The Tower pipeline is a complete, multi-modal edge AI engine:
    ```
    *(Note: The YOLOv8 models will automatically download their weights the first time you run the pipeline).*
 
+### Setting up the YouHome Dataset (Optional for Testing)
+Tower was developed and tested using the YouHome Activities of Daily Living (ADL) Dataset, which is excellent for testing indoor multi-modal context since it features irregular poses and lighting.
+
+1. Clone the YouHome Dataset repository into the `data/` folder:
+   ```bash
+   git clone https://github.com/UIUC-ChenLab/YouHome-Dataset.git data/YouHome-Dataset
+   ```
+2. The repository contains the training code, but the actual image data is hosted externally. Download the image dataset from their [Official Box Link](https://uofi.box.com/s/21k90kmybyuinsssk8ygsjhbqluu5n7e).
+3. Extract the downloaded images into `data/YouHome-Dataset/Images/`.
+
+You can now explore the dataset by running the Tower pipeline directly against one of the activity folders (e.g., `Activity_1`).
+
 ## Usage
 
 ### 1. Run the Main Pipeline
