@@ -43,8 +43,10 @@ class EventInterpreter:
             
         elif event_type == "object_left":
             return f"{event.get('object_id')} left the camera view."
-
-        return desc
+            
+        elif event_type == "audio_detected":
+            sound = event.get("sound_class", "a sound").replace("_", " ")
+            return f"Tower heard {sound}."
 
     def translate(self, event: Dict[str, Any]) -> str:
         """

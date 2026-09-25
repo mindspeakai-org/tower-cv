@@ -3,6 +3,7 @@ import cv2
 import argparse
 from src.pipeline.capture import FrameStreamer
 from src.inference.detector import ObjectDetector
+from src.inference.audio import AudioDetector
 from src.pipeline.tracker import ContextualTracker
 from src.core.logger import EventLogger
 from src.core.interpreter import EventInterpreter
@@ -11,6 +12,7 @@ def main(source, show_video=True):
     # Initialize components
     streamer = FrameStreamer(source=source, fps=30)
     detector = ObjectDetector(model_path="yolov8n-pose.pt")
+    audio_detector = AudioDetector()
     logger = EventLogger(db_path="data/tower_events.db")
     interpreter = EventInterpreter(use_llm=False)  # Set to True if Ollama is running locally
     
@@ -32,8 +34,12 @@ def main(source, show_video=True):
             # 1. Run inference
             annotated_frame, detections = detector.predict(frame)
             
-            # 2. Update tracking state and get contextual events
+            # 2. Update tracking state and get contextual visual events
             events = tracker.update(detections)
+            
+            # 2.5 Listen for audio events (mock buffer for now)
+            audio_events = audio_detector.listen(audio_buffer=None)
+            events.extend(audio_events)
             
             # 3. Output events (The Contextual API)
             for event in events:
