@@ -34,6 +34,9 @@ class ContextualTracker:
             
         events = []
         
+        # Keep track of which IDs were seen in this frame
+        seen_ids = set()
+        
         # Update state for current detections
         for det in detections:
             obj_id = det.get("id")
@@ -43,12 +46,15 @@ class ContextualTracker:
             if not obj_id or not centroid:
                 continue
                 
+            seen_ids.add(obj_id)
+                
             if obj_id not in self.objects:
                 # New object detected
                 self.objects[obj_id] = {
                     "last_pos": centroid,
                     "last_moved_time": current_time,
                     "first_seen_time": current_time,
+                    "last_seen_time": current_time,
                     "state": "active",
                     "label": label
                 }
@@ -62,6 +68,9 @@ class ContextualTracker:
                 # Existing object, calculate movement
                 obj = self.objects[obj_id]
                 dist = self._calculate_distance(obj["last_pos"], centroid)
+                
+                # Update last seen
+                obj["last_seen_time"] = current_time
                 
                 if dist > self.movement_threshold:
                     # Object moved significantly
@@ -87,6 +96,22 @@ class ContextualTracker:
                             "timestamp": current_time
                         })
                         
-        # TODO: Handle objects that have disappeared from view (cleanup and "object_left" events)
-        
+        # Cleanup objects that have disappeared from view
+        # If we haven't seen an object for 5 seconds, consider it gone.
+        LOST_THRESHOLD_SEC = 5.0
+        lost_ids = []
+        for obj_id, obj in self.objects.items():
+            if obj_id not in seen_ids:
+                if (current_time - obj["last_seen_time"]) > LOST_THRESHOLD_SEC:
+                    events.append({
+                        "type": "object_left",
+                        "description": f"The {obj['label']} ({obj_id}) has left the view.",
+                        "object_id": obj_id,
+                        "timestamp": current_time
+                    })
+                    lost_ids.append(obj_id)
+                    
+        for obj_id in lost_ids:
+            del self.objects[obj_id]
+            
         return events
